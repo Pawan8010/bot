@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snadesh AI Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        #chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-container::-webkit-scrollbar-track {
+            background: transparent;
+            border-radius: 10px;
+        }
+        #chat-container::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        #chat-container::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .chat-bubble {
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            position: relative;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        .user-bubble {
+            background-color: #4f46e5;
+            color: #ffffff;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .dark .user-bubble {
+            background-color: #6366f1;
+        }
+        .bot-bubble {
+            background-color: #f3f4f6;
+            color: #111827;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        .dark .bot-bubble {
+            background-color: #374151;
+            color: #f3f4f6;
+        }
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+        }
+        .typing-indicator span {
+            height: 10px;
+            width: 10px;
+            background-color: #9ca3af;
+            border-radius: 50%;
+            display: inline-block;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .dark .typing-indicator span {
+            background-color: #6b7280;
+        }
+        .typing-indicator .bounce1 {
+            animation-delay: -0.32s;
+        }
+        .typing-indicator .bounce2 {
+            animation-delay: -0.16s;
+        }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0.6); }
+            40% { transform: scale(1); }
+        }
+        .markdown-content p {
+            margin-bottom: 0.75em;
+        }
+        .markdown-content ul, .markdown-content ol {
+            margin-left: 1.5em;
+            margin-bottom: 0.75em;
+        }
+        .markdown-content li {
+            margin-bottom: 0.25em;
+        }
+        .markdown-content pre {
+            background-color: rgba(0,0,0,0.05);
+            padding: 0.75em;
+            border-radius: 0.5em;
+            overflow-x: auto;
+            margin-bottom: 0.75em;
+        }
+        .dark .markdown-content pre {
+            background-color: rgba(255,255,255,0.1);
+        }
+        .markdown-content code {
+            font-family: monospace;
+            background-color: rgba(0,0,0,0.05);
+            padding: 0.2em 0.4em;
+            border-radius: 0.3em;
+            font-size: 0.9em;
+        }
+        .dark .markdown-content code {
+            background-color: rgba(255,255,255,0.1);
+        }
+        .markdown-content blockquote {
+            border-left: 3px solid #ddd;
+            padding-left: 1em;
+            margin-left: 0;
+            margin-bottom: 0.75em;
+            color: #666;
+        }
+        .dark .markdown-content blockquote {
+            border-left-color: #555;
+            color: #aaa;
+        }
+        .markdown-content a {
+            color: #4f46e5;
+            text-decoration: underline;
+        }
+        .dark .markdown-content a {
+            color: #818cf8;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 120px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -60px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 0.8rem;
+        }
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+        .dark .tooltip .tooltiptext {
+            background-color: #333;
+        }
+        .mode-toggle {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+        .mode-toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #4f46e5;
+        }
+        input:checked + .slider:before {
+            transform: translateX(30px);
+        }
+        .slider:after {
+            content: "☀️";
+            position: absolute;
+            left: 8px;
+            top: 3px;
+            font-size: 14px;
+        }
+        input:checked + .slider:after {
+            content: "🌙";
+            left: 38px;
+        }
+        .file-preview {
+            max-width: 100%;
+            max-height: 200px;
+            border-radius: 8px;
+            margin-top: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .dark .file-preview {
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .action-btn {
+            transition: all 0.2s ease;
+            border-radius: 12px;
+        }
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .dark .action-btn:hover {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .prompt-suggestion {
+            background-color: #f3f4f6;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .dark .prompt-suggestion {
+            background-color: #374151;
+        }
+        .prompt-suggestion:hover {
+            background-color: #e5e7eb;
+            transform: translateY(-2px);
+        }
+        .dark .prompt-suggestion:hover {
+            background-color: #4b5563;
+        }
+        .suggestions-title {
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #6b7280;
+        }
+        .dark .suggestions-title {
+            color: #9ca3af;
+        }
+        .tab-button {
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .tab-button.active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .dark .tab-button.active {
+            background-color: #6366f1;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-gray-100 flex items-center justify-center min-h-screen">
+    <div class="w-full max-w-3xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col h-[95vh] max-h-[900px] transition-colors">
+       
+        <header class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 rounded-t-2xl shadow-lg flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-1"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/><path d="m15 5 3 3"/></svg>
+                <h1 class="text-xl font-bold">Snadesh AI</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <label class="mode-toggle">
+                    <input type="checkbox" id="dark-mode-toggle">
+                    <span class="slider"></span>
+                </label>
+                <button id="clear-chat-btn" title="Clear Chat" class="p-2 rounded-full hover:bg-white/20 transition-colors tooltip">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                    <span class="tooltiptext">Clear Chat</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="flex border-b border-gray-200 dark:border-gray-700 px-4 pt-2">
+            <button class="tab-button active" data-tab="chat-tab">Chat</button>
+            <button class="tab-button" data-tab="image-gen-tab">Image Generator</button>
+        </div>
+        
+        <!-- Chat Tab -->
+        <div id="chat-tab" class="tab-content active flex-1 flex flex-col">
+            <div id="chat-container" class="flex-1 p-6 overflow-y-auto flex flex-col gap-4">
+                <!-- Chat messages will appear here -->
+            </div>
+
+            <div id="suggestions-container" class="px-6 pb-2 hidden">
+                <div class="suggestions-title">Try asking:</div>
+                <div class="prompt-suggestion" data-prompt="Summarize the key points from this document">Summarize the key points from this document</div>
+                <div class="prompt-suggestion" data-prompt="What are the main themes in this content?">What are the main themes in this content?</div>
+                <div class="prompt-suggestion" data-prompt="Explain this in simpler terms">Explain this in simpler terms</div>
+            </div>
+
+            <div id="typing-indicator-container" class="hidden p-6 pt-0">
+                <div class="chat-bubble bot-bubble">
+                    <div class="typing-indicator">
+                        <span class="bounce1"></span>
+                        <span class="bounce2"></span>
+                        <span class="bounce3"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="error-message" class="hidden p-4 m-4 bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 rounded-lg text-center font-medium"></div>
+
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 rounded-b-2xl">
+                <div class="flex items-center gap-3">
+                    <div class="relative">
+                        <input type="file" id="file-input" class="hidden" accept="application/pdf,image/*">
+                        <button id="upload-button" class="p-3 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-full transition-colors action-btn tooltip">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-600 dark:text-gray-300"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                            <span class="tooltiptext">Upload File</span>
+                        </button>
+                    </div>
+                    <input type="text" id="chat-input" placeholder="Ask a follow-up question..." class="flex-1 w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow bg-white dark:bg-gray-700" disabled>
+                    <button id="send-button" class="p-3 bg-indigo-600 hover:bg-indigo-700 rounded-full transition-colors shadow-md action-btn" disabled>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Generation Tab -->
+        <div id="image-gen-tab" class="tab-content flex-1 flex flex-col">
+            <div class="flex-1 p-6 overflow-y-auto">
+                <div class="mb-6">
+                    <h2 class="text-xl font-bold mb-2">Generate Images with AI</h2>
+                    <p class="text-gray-600 dark:text-gray-300 mb-4">Describe what you want to create and our AI will generate it for you.</p>
+                    
+                    <div class="mb-4">
+                        <label for="image-prompt" class="block text-sm font-medium mb-2">Image Description</label>
+                        <textarea id="image-prompt" rows="3" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700" placeholder="A futuristic cityscape at sunset with flying cars..."></textarea>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="image-style" class="block text-sm font-medium mb-2">Style</label>
+                            <select id="image-style" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700">
+                                <option value="realistic">Realistic</option>
+                                <option value="cartoon">Cartoon</option>
+                                <option value="3d-render">3D Render</option>
+                                <option value="watercolor">Watercolor</option>
+                                <option value="cyberpunk">Cyberpunk</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="image-size" class="block text-sm font-medium mb-2">Size</label>
+                            <select id="image-size" class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white dark:bg-gray-700">
+                                <option value="512x512">512x512</option>
+                                <option value="1024x1024">1024x1024</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button id="generate-image-btn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors shadow-md action-btn">
+                        Generate Image
+                    </button>
+                </div>
+                
+                <div id="image-results" class="grid grid-cols-1 gap-4">
+                    <!-- Generated images will appear here -->
+                    <div class="text-center py-10 text-gray-500 dark:text-gray-400" id="image-placeholder">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mx-auto mb-4"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <p>Your generated images will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const fileInput = document.getElementById('file-input');
+        const uploadButton = document.getElementById('upload-button');
+        const chatInput = document.getElementById('chat-input');
+        const sendButton = document.getElementById('send-button');
+        const chatContainer = document.getElementById('chat-container');
+        const typingIndicator = document.getElementById('typing-indicator-container');
+        const errorMessage = document.getElementById('error-message');
+        const clearChatBtn = document.getElementById('clear-chat-btn');
+        const darkModeToggle = document.getElementById('dark-mode-toggle');
+        const suggestionsContainer = document.getElementById('suggestions-container');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+        const imagePromptInput = document.getElementById('image-prompt');
+        const generateImageBtn = document.getElementById('generate-image-btn');
+        const imageResults = document.getElementById('image-results');
+        const imagePlaceholder = document.getElementById('image-placeholder');
+
+        // State variables
+        let chatHistory = [];
+        let documentContext = { type: null, content: null, mimeType: null };
+        let isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+        // Initialize the app
+        const init = () => {
+            // Set initial dark mode state
+            setDarkMode(isDarkMode);
+            darkModeToggle.checked = isDarkMode;
+
+            // PDF.js setup
+            if (window.pdfjsLib) {
+                pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+            }
+
+            // Event listeners
+            uploadButton.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', handleFileSelect);
+            sendButton.addEventListener('click', handleSendMessage);
+            chatInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                }
+            });
+            clearChatBtn.addEventListener('click', resetChat);
+            darkModeToggle.addEventListener('change', toggleDarkMode);
+            
+            // Tab switching
+            tabButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const tabId = button.getAttribute('data-tab');
+                    switchTab(tabId);
+                });
+            });
+
+            // Image generation
+            generateImageBtn.addEventListener('click', generateImage);
+
+            // Prompt suggestions
+            document.querySelectorAll('.prompt-suggestion').forEach(suggestion => {
+                suggestion.addEventListener('click', () => {
+                    const prompt = suggestion.getAttribute('data-prompt');
+                    chatInput.value = prompt;
+                    chatInput.focus();
+                });
+            });
+
+            resetChat(true); // Initial setup
+        };
+
+        // Tab switching function
+        function switchTab(tabId) {
+            tabButtons.forEach(button => {
+                button.classList.remove('active');
+                if (button.getAttribute('data-tab') === tabId) {
+                    button.classList.add('active');
+                }
+            });
+
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+                if (content.id === tabId) {
+                    content.classList.add('active');
+                }
+            });
+        }
+
+        // Dark mode functions
+        function toggleDarkMode() {
+            isDarkMode = !isDarkMode;
+            setDarkMode(isDarkMode);
+            localStorage.setItem('darkMode', isDarkMode);
+        }
+
+        function setDarkMode(enabled) {
+            if (enabled) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        // Reset chat function
+        function resetChat(isInitialLoad = false) {
+            chatHistory = [];
+            documentContext = { type: null, content: null, mimeType: null };
+            chatContainer.innerHTML = '';
+            
+            if (isInitialLoad) {
+                displayBotMessage("Hello! I'm your AI assistant. You can ask me anything, or upload a document to discuss its content. I can also generate images for you!", true);
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+                chatInput.placeholder = "Ask me anything...";
+                suggestionsContainer.classList.remove('hidden');
+            } else {
+                displayBotMessage("Hello! Please upload a PDF or an image file to begin.", true);
+                chatInput.disabled = true;
+                sendButton.disabled = true;
+                chatInput.placeholder = "Upload a file to start";
+                suggestionsContainer.classList.add('hidden');
+            }
+            
+            chatInput.value = '';
+            errorMessage.classList.add('hidden');
+        }
+
+        // File handling
+        async function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
+                showError('Unsupported file type. Please upload an image or a PDF.');
+                return;
+            }
+
+            chatHistory = [];
+            documentContext = { type: null, content: null, mimeType: null };
+            chatContainer.innerHTML = '';
+            errorMessage.classList.add('hidden');
+            
+            setLoading(true);
+
+            try {
+                let userMessageContent = `File uploaded: <strong>${file.name}</strong>`;
+                let initialPrompt;
+
+                if (file.type.startsWith('image/')) {
+                    const base64Data = await fileToBase64(file);
+                    documentContext = { type: 'image', content: base64Data, mimeType: file.type };
+                    userMessageContent += `<br><img src="data:${file.type};base64,${base64Data}" class="file-preview" alt="Image preview">`;
+                    initialPrompt = "Analyze this image and provide a concise summary of its content.";
+                } else if (file.type === 'application/pdf') {
+                    const text = await extractTextFromPdf(file);
+                    if (!text.trim()) {
+                       throw new Error("Could not extract text from the PDF. It might be image-based or empty.");
+                    }
+                    documentContext = { type: 'text', content: text };
+                    initialPrompt = `Please provide a concise summary of the following text extracted from a PDF.`;
+                }
+                
+                displayUserMessage(userMessageContent);
+                await processMessage(initialPrompt, true);
+                
+                chatInput.disabled = false;
+                sendButton.disabled = false;
+                chatInput.placeholder = "Ask a follow-up question...";
+                chatInput.focus();
+                suggestionsContainer.classList.remove('hidden');
+
+            } catch (error) {
+                console.error('Processing Error:', error);
+                showError(error.message || 'An unexpected error occurred.');
+                resetChat(); 
+            } finally {
+                setLoading(false);
+                fileInput.value = '';
+            }
+        }
+
+        // Message handling
+        async function handleSendMessage() {
+            const userText = chatInput.value.trim();
+            if (!userText || sendButton.disabled) return;
+            
+            displayUserMessage(userText);
+            chatInput.value = '';
+            setLoading(true);
+
+            await processMessage(userText);
+            
+            setLoading(false);
+            chatInput.focus();
+        }
+        
+        async function processMessage(text, isInitialSummary = false) {
+            chatHistory.push({ role: "user", parts: [{ text }] });
+            
+            try {
+                const responseText = await getApiResponse(isInitialSummary);
+                chatHistory.push({ role: "model", parts: [{ text: responseText }] });
+                displayBotMessage(responseText, true);
+            } catch (error) {
+                console.error('API Error:', error);
+                showError(error.message || 'Failed to get a response from the AI.');
+            }
+        }
+        
+        // API communication
+        async function getApiResponse(isInitialSummary = false) {
+            const apiKey = "AIzaSyARqig78V8BkI4e98ReFxSb0s4M-Xb7gB4"; 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
+            let contents = [];
+            let systemInstructionText = "You are a helpful AI assistant.";
+
+            if (documentContext.type) {
+                systemInstructionText = "You are an AI assistant focused on the provided document. The user has uploaded a document. Your first task was to summarize it. Now, answer their follow-up questions based on that document context.";
+
+                if (isInitialSummary) {
+                    let initialParts = [{ text: chatHistory[0].parts[0].text }];
+                    if (documentContext.type === 'image') {
+                        initialParts.push({ inlineData: { mimeType: documentContext.mimeType, data: documentContext.content } });
+                    }
+                    contents.push({ role: "user", parts: initialParts });
+                } 
+                else {
+                    let firstTurnParts = [];
+                    if (documentContext.type === 'image') {
+                        firstTurnParts = [{text: 'This is the image context for the conversation:'}, { inlineData: { mimeType: documentContext.mimeType, data: documentContext.content } }];
+                    } else {
+                        firstTurnParts = [{text: `This is the text context for the conversation:\n${documentContext.content}`}];
+                    }
+                    contents = [ {role: 'user', parts: firstTurnParts}, ...chatHistory ];
+                }
+            } 
+            else {
+                contents = chatHistory;
+            }
+            
+            const payload = { 
+                contents, 
+                systemInstruction: { parts: [{ text: systemInstructionText }] },
+                generationConfig: { temperature: 0.5, maxOutputTokens: 2048 } 
+            };
+            
+            const response = await fetch(apiUrl, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify(payload) 
+            });
+            
+            if (!response.ok) {
+                const errorBody = await response.text();
+                throw new Error(`API Error: ${response.status} ${response.statusText}. Details: ${errorBody}`);
+            }
+            
+            const result = await response.json();
+            if (result.candidates && result.candidates[0].content.parts.length > 0) {
+                return result.candidates[0].content.parts[0].text;
+            } else {
+                throw new Error(result.promptFeedback?.blockReason || 'The model returned an empty response.');
+            }
+        }
+
+        // Image generation
+        async function generateImage() {
+            const prompt = imagePromptInput.value.trim();
+            if (!prompt) {
+                showError("Please enter a description for the image");
+                return;
+            }
+
+            const style = document.getElementById('image-style').value;
+            const size = document.getElementById('image-size').value;
+            
+            // In a real implementation, you would call an image generation API here
+            // This is a mock implementation that simulates the process
+            
+            generateImageBtn.disabled = true;
+            generateImageBtn.textContent = "Generating...";
+            imagePlaceholder.classList.add('hidden');
+            imageResults.innerHTML = '<div class="col-span-1 flex items-center justify-center py-10"><div class="typing-indicator"><span class="bounce1"></span><span class="bounce2"></span><span class="bounce3"></span></div></div>';
+            
+            // Simulate API delay
+            setTimeout(() => {
+                // This would be replaced with actual API call
+                // For demo purposes, we'll use placeholder images
+                const mockImages = [
+                    "https://source.unsplash.com/random/512x512/?fantasy," + encodeURIComponent(prompt),
+                    "https://source.unsplash.com/random/512x512/?digitalart," + encodeURIComponent(prompt)
+                ];
+                
+                imageResults.innerHTML = '';
+                
+                mockImages.forEach(imgUrl => {
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'relative group';
+                    
+                    const img = document.createElement('img');
+                    img.src = imgUrl;
+                    img.alt = prompt;
+                    img.className = 'w-full h-auto rounded-lg shadow-md';
+                    
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.className = 'absolute bottom-2 right-2 bg-indigo-600 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md';
+                    downloadBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
+                    downloadBtn.onclick = () => downloadImage(imgUrl, prompt);
+                    
+                    imgContainer.appendChild(img);
+                    imgContainer.appendChild(downloadBtn);
+                    imageResults.appendChild(imgContainer);
+                });
+                
+                generateImageBtn.disabled = false;
+                generateImageBtn.textContent = "Generate Image";
+            }, 2000);
+        }
+
+        function downloadImage(url, prompt) {
+            // In a real implementation, this would download the actual generated image
+            // For demo, we'll just open the placeholder in a new tab
+            window.open(url, '_blank');
+        }
+
+        // Helper functions
+        async function extractTextFromPdf(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                fullText += textContent.items.map(item => item.str).join(' ') + '\n\n';
+            }
+            return fullText;
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function setLoading(isLoading) {
+            chatInput.disabled = isLoading;
+            sendButton.disabled = isLoading;
+            uploadButton.disabled = isLoading;
+            if (isLoading) {
+                typingIndicator.classList.remove('hidden');
+                uploadButton.classList.add('opacity-50');
+                sendButton.classList.add('opacity-50');
+            } else {
+                typingIndicator.classList.add('hidden');
+                uploadButton.classList.remove('opacity-50');
+                sendButton.classList.remove('opacity-50');
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            setTimeout(() => {
+                errorMessage.classList.add('hidden');
+            }, 5000);
+        }
+        
+        function displayUserMessage(content) {
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble user-bubble';
+            bubble.innerHTML = content;
+            chatContainer.appendChild(bubble);
+            scrollToBottom();
+        }
+
+        function displayBotMessage(text, isMarkdown = false) {
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble bot-bubble';
+            
+            if (isMarkdown) {
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'markdown-content';
+                contentDiv.innerHTML = marked.parse(text);
+                bubble.appendChild(contentDiv);
+            } else {
+                bubble.textContent = text;
+            }
+            
+            chatContainer.appendChild(bubble);
+            scrollToBottom();
+        }
+        
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // Initialize the app
+        init();
+    </script>
+</body>
+</html>
